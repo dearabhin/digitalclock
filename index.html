@@ -1,0 +1,1632 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Over-Engineered Digital Clock</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZQrJxKfN50PzdkLTFuX1aqApmMk="
+      crossorigin=""
+    ></script>
+    <style>
+      :root {
+        --primary-color: #2c3e50;
+        --secondary-color: #34495e;
+        --accent-color: #3498db;
+        --text-color: #ecf0f1;
+        --success-color: #2ecc71;
+        --warning-color: #f39c12;
+        --danger-color: #e74c3c;
+        --card-bg: rgba(44, 62, 80, 0.7);
+        --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        --transition: all 0.3s ease;
+      }
+
+      /* Dark theme */
+      [data-theme="dark"] {
+        --primary-color: #1a1a2e;
+        --secondary-color: #16213e;
+        --accent-color: #0f3460;
+        --text-color: #e94560;
+        --card-bg: rgba(26, 26, 46, 0.7);
+      }
+
+      /* Light theme */
+      [data-theme="light"] {
+        --primary-color: #f5f5f5;
+        --secondary-color: #e0e0e0;
+        --accent-color: #90caf9;
+        --text-color: #333333;
+        --card-bg: rgba(245, 245, 245, 0.7);
+      }
+
+      /* Blue theme */
+      [data-theme="blue"] {
+        --primary-color: #1e3a8a;
+        --secondary-color: #2563eb;
+        --accent-color: #3b82f6;
+        --text-color: #dbeafe;
+        --card-bg: rgba(30, 58, 138, 0.7);
+      }
+
+      /* Green theme */
+      [data-theme="green"] {
+        --primary-color: #064e3b;
+        --secondary-color: #047857;
+        --accent-color: #10b981;
+        --text-color: #d1fae5;
+        --card-bg: rgba(6, 78, 59, 0.7);
+      }
+
+      /* Purple theme */
+      [data-theme="purple"] {
+        --primary-color: #4c1d95;
+        --secondary-color: #6d28d9;
+        --accent-color: #8b5cf6;
+        --text-color: #ede9fe;
+        --card-bg: rgba(76, 29, 149, 0.7);
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: "Roboto", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background-color: var(--primary-color);
+        color: var(--text-color);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        transition: var(--transition);
+        overflow-x: hidden;
+      }
+
+      .container {
+        width: 100%;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        flex: 1;
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      .header h1 {
+        font-size: 2.5rem;
+        margin: 0;
+        background: linear-gradient(
+          45deg,
+          var(--accent-color),
+          var(--text-color)
+        );
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .clock-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+      }
+
+      .digital-clock {
+        background-color: var(--card-bg);
+        border-radius: 20px;
+        padding: 40px;
+        box-shadow: var(--card-shadow);
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        width: 100%;
+        max-width: 600px;
+        transition: var(--transition);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .clock-face {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        font-size: 4rem;
+        font-weight: bold;
+        text-align: center;
+        position: relative;
+      }
+
+      .digit-container {
+        display: inline-block;
+        position: relative;
+        overflow: hidden;
+        height: 80px;
+        padding: 0 5px;
+      }
+
+      .digit {
+        display: inline-block;
+        transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+
+      .colon {
+        animation: blink 2s infinite;
+      }
+
+      @keyframes blink {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.3;
+        }
+      }
+
+      .date-display {
+        font-size: 1.2rem;
+        text-align: center;
+        margin-top: 10px;
+      }
+
+      .timezone-display {
+        font-size: 1.4rem;
+        font-weight: bold;
+        text-align: center;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .timezone-badge {
+        background-color: var(--accent-color);
+        color: var(--text-color);
+        border-radius: 50px;
+        padding: 5px 15px;
+        font-size: 0.9rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+
+      .controls {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin-top: 20px;
+        flex-wrap: wrap;
+      }
+
+      .btn {
+        background-color: var(--secondary-color);
+        color: var(--text-color);
+        border: none;
+        border-radius: 50px;
+        padding: 10px 20px;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: var(--transition);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .btn:hover {
+        background-color: var(--accent-color);
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+      }
+
+      .btn:active {
+        transform: translateY(0);
+        box-shadow: none;
+      }
+
+      .btn-icon {
+        font-size: 1.2rem;
+      }
+
+      .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.8);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        opacity: 0;
+        visibility: hidden;
+        transition: var(--transition);
+      }
+
+      .modal.active {
+        opacity: 1;
+        visibility: visible;
+      }
+
+      .modal-content {
+        background-color: var(--card-bg);
+        border-radius: 20px;
+        padding: 30px;
+        width: 90%;
+        max-width: 600px;
+        max-height: 80vh;
+        overflow-y: auto;
+        position: relative;
+        transform: translateY(50px);
+        opacity: 0;
+        transition: var(--transition);
+      }
+
+      .modal.active .modal-content {
+        transform: translateY(0);
+        opacity: 1;
+      }
+
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        border-bottom: 1px solid var(--secondary-color);
+        padding-bottom: 15px;
+      }
+
+      .modal-title {
+        font-size: 1.5rem;
+        margin: 0;
+      }
+
+      .close-modal {
+        background: none;
+        border: none;
+        color: var(--text-color);
+        font-size: 1.5rem;
+        cursor: pointer;
+        transition: var(--transition);
+      }
+
+      .close-modal:hover {
+        color: var(--accent-color);
+        transform: rotate(90deg);
+      }
+
+      .modal-body {
+        margin-bottom: 20px;
+      }
+
+      .settings-section {
+        margin-bottom: 30px;
+      }
+
+      .settings-section h3 {
+        margin-top: 0;
+        margin-bottom: 15px;
+        border-left: 4px solid var(--accent-color);
+        padding-left: 10px;
+      }
+
+      .theme-options {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 15px;
+      }
+
+      .theme-option {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        cursor: pointer;
+        transition: var(--transition);
+        position: relative;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+      }
+
+      .theme-option:hover {
+        transform: scale(1.1);
+      }
+
+      .theme-option.active {
+        border: 3px solid var(--text-color);
+      }
+
+      .theme-option[data-theme="default"] {
+        background: linear-gradient(45deg, #2c3e50, #3498db);
+      }
+
+      .theme-option[data-theme="dark"] {
+        background: linear-gradient(45deg, #1a1a2e, #e94560);
+      }
+
+      .theme-option[data-theme="light"] {
+        background: linear-gradient(45deg, #f5f5f5, #90caf9);
+      }
+
+      .theme-option[data-theme="blue"] {
+        background: linear-gradient(45deg, #1e3a8a, #3b82f6);
+      }
+
+      .theme-option[data-theme="green"] {
+        background: linear-gradient(45deg, #064e3b, #10b981);
+      }
+
+      .theme-option[data-theme="purple"] {
+        background: linear-gradient(45deg, #4c1d95, #8b5cf6);
+      }
+
+      .timezone-list {
+        max-height: 300px;
+        overflow-y: auto;
+        border: 1px solid var(--secondary-color);
+        border-radius: 10px;
+        padding: 10px;
+        margin-top: 15px;
+      }
+
+      .timezone-option {
+        padding: 10px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border-radius: 5px;
+        transition: var(--transition);
+      }
+
+      .timezone-option:hover {
+        background-color: var(--secondary-color);
+      }
+
+      .timezone-option.active {
+        background-color: var(--accent-color);
+      }
+
+      .search-box {
+        width: 100%;
+        padding: 10px 15px;
+        border-radius: 50px;
+        border: 1px solid var(--secondary-color);
+        background-color: var(--primary-color);
+        color: var(--text-color);
+        font-size: 1rem;
+        transition: var(--transition);
+        margin-bottom: 15px;
+      }
+
+      .search-box:focus {
+        outline: none;
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.3);
+      }
+
+      #map-container {
+        width: 100%;
+        height: 300px;
+        border-radius: 10px;
+        overflow: hidden;
+        margin-top: 15px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        background-color: #ccc;
+        position: relative;
+      }
+
+      #map {
+        width: 100%;
+        height: 100%;
+      }
+
+      .map-placeholder {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 1.2rem;
+        color: #666;
+        text-align: center;
+        padding: 20px;
+        background-color: rgba(
+          255,
+          255,
+          255,
+          0.8
+        ); /* Add a background to make text readable */
+        z-index: 1; /* Ensure placeholder is above the map div */
+        pointer-events: none; /* Allow clicks to pass through to the map */
+        transition: opacity 0.3s ease;
+      }
+
+      .map-placeholder.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .map-message {
+        text-align: center;
+        margin-top: 10px;
+        font-size: 1rem;
+        color: var(--text-color);
+      }
+
+      .footer {
+        background-color: var(--secondary-color);
+        padding: 20px 0;
+        text-align: center;
+        margin-top: 50px;
+      }
+
+      .social-icons {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        margin-bottom: 20px;
+      }
+
+      .social-icon {
+        font-size: 1.8rem;
+        color: var(--text-color);
+        transition: var(--transition);
+        opacity: 0.8;
+      }
+
+      .social-icon:hover {
+        transform: translateY(-5px);
+        opacity: 1;
+        color: var(--accent-color);
+      }
+
+      .copyright {
+        font-size: 0.9rem;
+        opacity: 0.7;
+      }
+
+      /* Responsive styles */
+      @media (max-width: 768px) {
+        .clock-face {
+          font-size: 3rem;
+        }
+
+        .digital-clock {
+          padding: 20px;
+        }
+
+        .modal-content {
+          padding: 20px;
+          max-width: 95%;
+        }
+
+        .theme-option {
+          width: 35px;
+          height: 35px;
+        }
+
+        .controls {
+          flex-direction: column;
+          align-items: center;
+        }
+
+        .btn {
+          width: 100%;
+          justify-content: center;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .clock-face {
+          font-size: 2.5rem;
+        }
+
+        .header h1 {
+          font-size: 1.8rem;
+        }
+
+        .controls {
+          gap: 10px;
+        }
+
+        .theme-options {
+          justify-content: center;
+        }
+      }
+
+      /* Animations */
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .digital-clock {
+        animation: fadeIn 0.5s ease-out;
+      }
+
+      @keyframes float {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-10px);
+        }
+      }
+
+      .glowing {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        z-index: -1;
+        border-radius: 20px;
+        animation: glow 3s infinite alternate;
+        opacity: 0.5;
+        filter: blur(20px);
+      }
+
+      @keyframes glow {
+        0% {
+          background-position: 0% 50%;
+        }
+        100% {
+          background-position: 100% 50%;
+        }
+      }
+
+      .loading-spinner {
+        border: 4px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top: 4px solid var(--accent-color);
+        width: 30px;
+        height: 30px;
+        animation: spin 1s linear infinite;
+        margin: 20px auto;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Custom checkbox styling */
+      .settings-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+        margin-bottom: 10px;
+      }
+
+      .checkbox-container {
+        width: 24px;
+        height: 24px;
+        position: relative;
+      }
+
+      .checkbox-input {
+        position: absolute;
+        opacity: 0;
+        cursor: pointer;
+        height: 0;
+        width: 0;
+      }
+
+      .checkmark {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 24px;
+        width: 24px;
+        background-color: var(--primary-color);
+        border: 2px solid var(--accent-color);
+        border-radius: 5px;
+        transition: var(--transition);
+      }
+
+      .checkbox-input:checked ~ .checkmark {
+        background-color: var(--accent-color);
+      }
+
+      .checkmark:after {
+        content: "";
+        position: absolute;
+        display: none;
+      }
+
+      .checkbox-input:checked ~ .checkmark:after {
+        display: block;
+      }
+
+      .settings-checkbox .checkmark:after {
+        left: 9px;
+        top: 5px;
+        width: 5px;
+        height: 10px;
+        border: solid white;
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header class="header">
+        <h1>Over-Engineered Digital Clock</h1>
+      </header>
+
+      <div class="clock-container">
+        <div class="digital-clock">
+          <div class="glowing"></div>
+          <div class="clock-face">
+            <div class="hours-container">
+              <div class="digit" id="hours">00</div>
+            </div>
+            <div class="colon">:</div>
+            <div class="minutes-container">
+              <div class="digit" id="minutes">00</div>
+            </div>
+            <div class="colon">:</div>
+            <div class="seconds-container">
+              <div class="digit" id="seconds">00</div>
+            </div>
+          </div>
+          <div class="date-display" id="date">Loading date...</div>
+          <div class="timezone-display">
+            <span class="timezone-badge" id="timezone">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              Loading timezone...
+            </span>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button class="btn" id="settings-btn">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="3"></circle>
+              <path
+                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+              ></path>
+            </svg>
+            Settings
+          </button>
+
+          <button class="btn" id="timezone-btn">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <path
+                d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+              ></path>
+            </svg>
+            Timezone
+          </button>
+
+          <button class="btn" id="theme-btn">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+            Theme
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="settings-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title">Settings</h2>
+          <button class="close-modal" id="close-settings">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="settings-section">
+            <h3>Display Settings</h3>
+            <label class="settings-checkbox">
+              <div class="checkbox-container">
+                <input
+                  type="checkbox"
+                  class="checkbox-input"
+                  id="show-seconds"
+                  checked
+                />
+                <span class="checkmark"></span>
+              </div>
+              Show seconds
+            </label>
+            <label class="settings-checkbox">
+              <div class="checkbox-container">
+                <input
+                  type="checkbox"
+                  class="checkbox-input"
+                  id="show-date"
+                  checked
+                />
+                <span class="checkmark"></span>
+              </div>
+              Show date
+            </label>
+            <label class="settings-checkbox">
+              <div class="checkbox-container">
+                <input
+                  type="checkbox"
+                  class="checkbox-input"
+                  id="use-24-hour"
+                  checked
+                />
+                <span class="checkmark"></span>
+              </div>
+              Use 24-hour format
+            </label>
+          </div>
+          <div class="settings-section">
+            <h3>Animation Settings</h3>
+            <label class="settings-checkbox">
+              <div class="checkbox-container">
+                <input
+                  type="checkbox"
+                  class="checkbox-input"
+                  id="enable-animations"
+                  checked
+                />
+                <span class="checkmark"></span>
+              </div>
+              Enable animations
+            </label>
+            <label class="settings-checkbox">
+              <div class="checkbox-container">
+                <input
+                  type="checkbox"
+                  class="checkbox-input"
+                  id="enable-glow"
+                  checked
+                />
+                <span class="checkmark"></span>
+              </div>
+              Enable glow effect
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="timezone-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title">Change Timezone</h2>
+          <button class="close-modal" id="close-timezone">×</button>
+        </div>
+        <div class="modal-body">
+          <input
+            type="text"
+            class="search-box"
+            id="timezone-search"
+            placeholder="Search for a timezone..."
+          />
+
+          <div class="settings-section">
+            <h3>Select on Map</h3>
+            <div id="map-container">
+              <div class="map-placeholder">
+                Click on the map to select a location and find its timezone.
+              </div>
+              <div id="map"></div>
+            </div>
+            <div class="map-message" id="map-message"></div>
+          </div>
+
+          <div class="settings-section">
+            <h3>Common Timezones</h3>
+            <div class="timezone-list" id="timezone-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="theme-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title">Change Theme</h2>
+          <button class="close-modal" id="close-theme">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="settings-section">
+            <h3>Select Theme</h3>
+            <div class="theme-options">
+              <div
+                class="theme-option active"
+                data-theme="default"
+                title="Default"
+              ></div>
+              <div class="theme-option" data-theme="dark" title="Dark"></div>
+              <div class="theme-option" data-theme="light" title="Light"></div>
+              <div class="theme-option" data-theme="blue" title="Blue"></div>
+              <div class="theme-option" data-theme="green" title="Green"></div>
+              <div
+                class="theme-option"
+                data-theme="purple"
+                title="Purple"
+              ></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <div class="social-icons">
+        <a
+          href="https://github.com/dearabhin"
+          class="social-icon"
+          target="_blank"
+          title="GitHub"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"
+            ></path>
+          </svg>
+        </a>
+        <a
+          href="https://abhinkrishna.com"
+          class="social-icon"
+          target="_blank"
+          title="Personal Website"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <path
+              d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+            ></path>
+          </svg>
+        </a>
+        <a
+          href="https://linkedin.com/in/abhin-krishna"
+          class="social-icon"
+          target="_blank"
+          title="LinkedIn"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"
+            ></path>
+            <rect x="2" y="9" width="4" height="12"></rect>
+            <circle cx="4" cy="4" r="2"></circle>
+          </svg>
+        </a>
+        <a
+          href="https://twitter.com/dearabhin"
+          class="social-icon"
+          target="_blank"
+          title="Twitter"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"
+            ></path>
+          </svg>
+        </a>
+      </div>
+      <div class="copyright">
+        &copy; <span id="copyright-year">2025</span> Abhin Krishna. All rights
+        reserved.
+      </div>
+    </footer>
+
+    <script>
+      // Global variables
+      let currentTimezone = "Asia/Kolkata"; // Default to IST
+      let use24Hour = true;
+      let showSeconds = true;
+      let showDate = true;
+      let enableAnimations = true;
+      let enableGlow = true;
+      let clockInterval;
+      let mapInstance = null; // To store the Leaflet map instance
+
+      // Common timezones with country info
+      const commonTimezones = [
+        { name: "IST - India", timezone: "Asia/Kolkata", country: "India" },
+        {
+          name: "GMT - London",
+          timezone: "Europe/London",
+          country: "United Kingdom",
+        },
+        {
+          name: "EST - New York",
+          timezone: "America/New_York",
+          country: "United States",
+        },
+        {
+          name: "CST - Chicago",
+          timezone: "America/Chicago",
+          country: "United States",
+        },
+        {
+          name: "MST - Denver",
+          timezone: "America/Denver",
+          country: "United States",
+        },
+        {
+          name: "PST - Los Angeles",
+          timezone: "America/Los_Angeles",
+          country: "United States",
+        },
+        { name: "JST - Tokyo", timezone: "Asia/Tokyo", country: "Japan" },
+        {
+          name: "AEST - Sydney",
+          timezone: "Australia/Sydney",
+          country: "Australia",
+        },
+        { name: "CET - Paris", timezone: "Europe/Paris", country: "France" },
+        { name: "Beijing Time", timezone: "Asia/Shanghai", country: "China" },
+        { name: "Moscow Time", timezone: "Europe/Moscow", country: "Russia" },
+        {
+          name: "BRT - São Paulo",
+          timezone: "America/Sao_Paulo",
+          country: "Brazil",
+        },
+        {
+          name: "GST - Dubai",
+          timezone: "Asia/Dubai",
+          country: "United Arab Emirates",
+        },
+        {
+          name: "SAST - Johannesburg",
+          timezone: "Africa/Johannesburg",
+          country: "South Africa",
+        },
+        {
+          name: "NZST - Auckland",
+          timezone: "Pacific/Auckland",
+          country: "New Zealand",
+        },
+      ];
+
+      // Initialize all modals and event listeners
+      document.addEventListener("DOMContentLoaded", function () {
+        initializeClock();
+        initializeModals();
+        populateTimezones();
+        initializeSettings();
+        initializeThemes();
+        document.getElementById("copyright-year").textContent =
+          new Date().getFullYear();
+
+        // Update glowing effect
+        updateGlowEffect();
+      });
+
+      // Initialize clock functionality
+      function initializeClock() {
+        updateClock();
+        clockInterval = setInterval(updateClock, 1000);
+      }
+
+      // Update clock display
+      function updateClock() {
+        const now = new Date();
+
+        // Create a date object with the current timezone
+        const options = { timeZone: currentTimezone };
+        const formatter = new Intl.DateTimeFormat("en-US", {
+          timeZone: currentTimezone,
+          hour: use24Hour ? "2-digit" : "numeric", // Use 'numeric' for 12-hour without leading zero
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: !use24Hour,
+        });
+
+        const parts = formatter.formatToParts(now);
+        let hours = "";
+        let minutes = "";
+        let seconds = "";
+        let ampm = ""; // For AM/PM
+
+        parts.forEach((part) => {
+          switch (part.type) {
+            case "hour":
+              hours = part.value;
+              break;
+            case "minute":
+              minutes = part.value;
+              break;
+            case "second":
+              seconds = part.value;
+              break;
+            case "dayPeriod": // Capture AM/PM
+              ampm = part.value;
+              break;
+          }
+        });
+
+        // Pad with leading zeros if necessary (only for 24-hour format)
+        if (use24Hour) {
+          if (hours.length === 1) hours = "0" + hours;
+        }
+        if (minutes.length === 1) minutes = "0" + minutes;
+        if (seconds.length === 1) seconds = "0" + seconds;
+
+        // Update DOM
+        document.getElementById("hours").textContent = hours;
+        document.getElementById("minutes").textContent = minutes;
+        document.getElementById("seconds").textContent = seconds;
+
+        // Add AM/PM if using 12-hour format
+        const clockFaceElement = document.querySelector(".clock-face");
+        let ampmElement = clockFaceElement.querySelector(".ampm");
+        if (!use24Hour) {
+          if (!ampmElement) {
+            ampmElement = document.createElement("span");
+            ampmElement.className = "ampm";
+            ampmElement.style.fontSize = "1.5rem"; // Adjust size as needed
+            ampmElement.style.marginLeft = "10px";
+            clockFaceElement.appendChild(ampmElement);
+          }
+          ampmElement.textContent = ampm;
+          ampmElement.style.display = "inline";
+        } else {
+          if (ampmElement) {
+            clockFaceElement.removeChild(ampmElement); // Remove if switching to 24-hour
+          }
+        }
+
+        // Update date
+        if (showDate) {
+          const dateFormatter = new Intl.DateTimeFormat("en-US", {
+            timeZone: currentTimezone,
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          });
+          document.getElementById("date").textContent =
+            dateFormatter.format(now);
+          document.getElementById("date").style.display = "block";
+        } else {
+          document.getElementById("date").style.display = "none";
+        }
+
+        // Update timezone display
+        updateTimezoneDisplay();
+      }
+
+      // Update timezone display
+      function updateTimezoneDisplay() {
+        // Attempt to get a more user-friendly timezone name if available in commonTimezones
+        const commonTz = commonTimezones.find(
+          (tz) => tz.timezone === currentTimezone
+        );
+        const displayTimezone = commonTz
+          ? `${commonTz.name} (${commonTz.country})`
+          : currentTimezone.split("/").pop().replace(/_/g, " ");
+
+        document.getElementById("timezone").innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                ${displayTimezone}
+            `;
+      }
+
+      // Initialize modals
+      function initializeModals() {
+        // Settings modal
+        document
+          .getElementById("settings-btn")
+          .addEventListener("click", function () {
+            openModal("settings-modal");
+          });
+        document
+          .getElementById("close-settings")
+          .addEventListener("click", function () {
+            closeModal("settings-modal");
+          });
+
+        // Timezone modal
+        document
+          .getElementById("timezone-btn")
+          .addEventListener("click", function () {
+            openModal("timezone-modal");
+            // Initialize map when timezone modal is opened
+            initializeMap();
+          });
+        document
+          .getElementById("close-timezone")
+          .addEventListener("click", function () {
+            closeModal("timezone-modal");
+          });
+
+        // Theme modal
+        document
+          .getElementById("theme-btn")
+          .addEventListener("click", function () {
+            openModal("theme-modal");
+          });
+        document
+          .getElementById("close-theme")
+          .addEventListener("click", function () {
+            closeModal("theme-modal");
+          });
+
+        // Close modals when clicking outside
+        window.addEventListener("click", function (event) {
+          if (event.target.classList.contains("modal")) {
+            closeModal(event.target.id);
+          }
+        });
+
+        // Timezone search functionality
+        document
+          .getElementById("timezone-search")
+          .addEventListener("input", function () {
+            filterTimezones(this.value);
+          });
+      }
+
+      // Open modal function
+      function openModal(modalId) {
+        const modal = document.getElementById(modalId);
+        modal.classList.add("active");
+        // Use a small timeout to allow modal transition to start before invalidating map size
+        setTimeout(() => {
+          modal.querySelector(".modal-content").style.transform =
+            "translateY(0)";
+          modal.querySelector(".modal-content").style.opacity = "1";
+          // Invalidate map size when modal is fully open to ensure it displays correctly
+          if (modalId === "timezone-modal" && mapInstance) {
+            mapInstance.invalidateSize();
+          }
+        }, 300); // Increased timeout to allow modal transition (0.3s) to complete
+      }
+
+      // Close modal function
+      function closeModal(modalId) {
+        const modal = document.getElementById(modalId);
+        modal.querySelector(".modal-content").style.transform =
+          "translateY(50px)";
+        modal.querySelector(".modal-content").style.opacity = "0";
+        setTimeout(() => {
+          modal.classList.remove("active");
+        }, 300);
+      }
+
+      // Populate timezones in the list
+      function populateTimezones() {
+        const timezoneList = document.getElementById("timezone-list");
+        timezoneList.innerHTML = "";
+
+        commonTimezones.forEach((tz) => {
+          const option = document.createElement("div");
+          option.className = "timezone-option";
+          if (tz.timezone === currentTimezone) {
+            option.classList.add("active");
+          }
+          option.setAttribute("data-timezone", tz.timezone);
+          option.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                    ${tz.name} (${tz.country})
+                `;
+          option.addEventListener("click", function () {
+            setTimezone(tz.timezone);
+            document.querySelectorAll(".timezone-option").forEach((el) => {
+              el.classList.remove("active");
+            });
+            this.classList.add("active");
+            // Close the modal after selecting from the list
+            closeModal("timezone-modal");
+          });
+          timezoneList.appendChild(option);
+        });
+      }
+
+      // Filter timezones based on search
+      function filterTimezones(searchTerm) {
+        const timezoneList = document.getElementById("timezone-list");
+        const options = timezoneList.querySelectorAll(".timezone-option");
+
+        searchTerm = searchTerm.toLowerCase();
+
+        options.forEach((option) => {
+          const text = option.textContent.toLowerCase();
+          if (text.includes(searchTerm)) {
+            option.style.display = "flex";
+          } else {
+            option.style.display = "none";
+          }
+        });
+      }
+
+      // Set timezone function
+      function setTimezone(timezone) {
+        currentTimezone = timezone;
+        updateClock();
+        updateTimezoneDisplay();
+        // Save to localStorage
+        saveSettings();
+      }
+
+      // Initialize settings
+      function initializeSettings() {
+        // Load saved settings
+        loadSettings();
+
+        // Show/hide seconds
+        document
+          .getElementById("show-seconds")
+          .addEventListener("change", function () {
+            showSeconds = this.checked;
+            const colonElements = document.querySelectorAll(".colon");
+            const secondsContainer =
+              document.querySelector(".seconds-container");
+
+            if (showSeconds) {
+              secondsContainer.style.display = "block";
+              // Ensure the second colon is also shown if seconds are visible
+              if (colonElements.length > 1) {
+                colonElements[1].style.display = "block";
+              }
+            } else {
+              secondsContainer.style.display = "none";
+              // Hide the second colon if seconds are hidden
+              if (colonElements.length > 1) {
+                colonElements[1].style.display = "none";
+              }
+            }
+
+            saveSettings();
+          });
+
+        // Show/hide date
+        document
+          .getElementById("show-date")
+          .addEventListener("change", function () {
+            showDate = this.checked;
+            if (showDate) {
+              document.getElementById("date").style.display = "block";
+            } else {
+              document.getElementById("date").style.display = "none";
+            }
+            saveSettings();
+          });
+
+        // 24-hour format toggle
+        document
+          .getElementById("use-24-hour")
+          .addEventListener("change", function () {
+            use24Hour = this.checked;
+            updateClock(); // Update clock immediately to reflect format change
+            saveSettings();
+          });
+
+        // Animation toggle
+        document
+          .getElementById("enable-animations")
+          .addEventListener("change", function () {
+            enableAnimations = this.checked;
+            document.body.style.setProperty(
+              "--transition",
+              enableAnimations ? "all 0.3s ease" : "none"
+            );
+            // Re-apply animations if enabled
+            if (enableAnimations) {
+              // You might need to re-add classes or trigger animations here
+              // For simplicity, we just control the transition property
+            }
+            saveSettings();
+          });
+
+        // Glow effect toggle
+        document
+          .getElementById("enable-glow")
+          .addEventListener("change", function () {
+            enableGlow = this.checked;
+            updateGlowEffect();
+            saveSettings();
+          });
+      }
+
+      // Save settings to localStorage
+      function saveSettings() {
+        const settings = {
+          timezone: currentTimezone,
+          use24Hour: use24Hour,
+          showSeconds: showSeconds,
+          showDate: showDate,
+          enableAnimations: enableAnimations,
+          enableGlow: enableGlow,
+          theme: document.body.getAttribute("data-theme") || "default",
+        };
+        localStorage.setItem("clockSettings", JSON.stringify(settings));
+      }
+
+      // Load settings from localStorage
+      function loadSettings() {
+        const saved = localStorage.getItem("clockSettings");
+        if (saved) {
+          const settings = JSON.parse(saved);
+
+          // Apply saved settings
+          currentTimezone = settings.timezone || "Asia/Kolkata";
+          use24Hour =
+            settings.use24Hour !== undefined ? settings.use24Hour : true;
+          showSeconds =
+            settings.showSeconds !== undefined ? settings.showSeconds : true;
+          showDate = settings.showDate !== undefined ? settings.showDate : true;
+          enableAnimations =
+            settings.enableAnimations !== undefined
+              ? settings.enableAnimations
+              : true;
+          enableGlow =
+            settings.enableGlow !== undefined ? settings.enableGlow : true;
+
+          // Apply theme
+          if (settings.theme) {
+            setTheme(settings.theme);
+          }
+
+          // Update UI to match settings
+          document.getElementById("show-seconds").checked = showSeconds;
+          document.getElementById("show-date").checked = showDate;
+          document.getElementById("use-24-hour").checked = use24Hour;
+          document.getElementById("enable-animations").checked =
+            enableAnimations;
+          document.getElementById("enable-glow").checked = enableGlow;
+
+          // Apply transitions
+          document.body.style.setProperty(
+            "--transition",
+            enableAnimations ? "all 0.3s ease" : "none"
+          );
+
+          // Apply glow effect
+          updateGlowEffect();
+
+          // Show/hide seconds and date based on loaded settings
+          const colonElements = document.querySelectorAll(".colon");
+          const secondsContainer = document.querySelector(".seconds-container");
+
+          if (!showSeconds) {
+            secondsContainer.style.display = "none";
+            if (colonElements.length > 1) {
+              colonElements[1].style.display = "none";
+            }
+          } else {
+            secondsContainer.style.display = "block";
+            if (colonElements.length > 1) {
+              colonElements[1].style.display = "block";
+            }
+          }
+
+          if (!showDate) {
+            document.getElementById("date").style.display = "none";
+          } else {
+            document.getElementById("date").style.display = "block";
+          }
+        }
+      }
+
+      // Initialize themes
+      function initializeThemes() {
+        const themeOptions = document.querySelectorAll(".theme-option");
+
+        themeOptions.forEach((option) => {
+          option.addEventListener("click", function () {
+            const theme = this.getAttribute("data-theme");
+            setTheme(theme);
+
+            // Update UI
+            themeOptions.forEach((opt) => opt.classList.remove("active"));
+            this.classList.add("active");
+
+            // Save setting
+            saveSettings();
+          });
+        });
+      }
+
+      // Set theme function
+      function setTheme(theme) {
+        // Remove any existing theme
+        document.body.removeAttribute("data-theme");
+
+        // Apply new theme if not default
+        if (theme !== "default") {
+          document.body.setAttribute("data-theme", theme);
+        }
+
+        // Update the glow effect
+        updateGlowEffect();
+      }
+
+      // Update the active theme option in UI
+      function updateActiveThemeOption() {
+        const theme = document.body.getAttribute("data-theme") || "default";
+        const themeOptions = document.querySelectorAll(".theme-option");
+
+        themeOptions.forEach((option) => {
+          option.classList.remove("active");
+          if (option.getAttribute("data-theme") === theme) {
+            option.classList.add("active");
+          }
+        });
+      }
+
+      // Make sure to update active theme option when opening theme modal
+      document
+        .getElementById("theme-btn")
+        .addEventListener("click", function () {
+          updateActiveThemeOption();
+        });
+
+      // --- OpenStreetMap Integration ---
+      function initializeMap() {
+        // Check if map is already initialized
+        if (mapInstance !== null) {
+          // Invalidate size to ensure it renders correctly in the modal
+          // This is now also called in openModal after transition
+          // mapInstance.invalidateSize();
+          return;
+        }
+
+        // Initialize the map
+        mapInstance = L.map("map").setView([0, 0], 2); // Center of the world, zoom level 2
+
+        // Add OpenStreetMap tiles
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        }).addTo(mapInstance);
+
+        // Add click event listener to the map
+        mapInstance.on("click", onMapClick);
+
+        // Hide the placeholder once the map is initialized
+        document.querySelector(".map-placeholder").classList.add("hidden");
+      }
+
+      // Handle map click event
+      async function onMapClick(e) {
+        const lat = e.latlng.lat;
+        const lon = e.latlng.lng;
+        const mapMessageElement = document.getElementById("map-message");
+
+        mapMessageElement.textContent = "Fetching timezone..."; // Loading message
+
+        try {
+          // Use Nominatim for reverse geocoding
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`
+          );
+          const data = await response.json();
+
+          if (data && data.timezone) {
+            const timezone = data.timezone;
+            setTimezone(timezone);
+            mapMessageElement.textContent = `Timezone set to: ${timezone}`;
+            // Optional: Close modal after successful selection
+            // closeModal('timezone-modal');
+          } else {
+            mapMessageElement.textContent =
+              "Timezone not found for this location.";
+          }
+        } catch (error) {
+          console.error("Error fetching timezone:", error);
+          mapMessageElement.textContent =
+            "Error fetching timezone. Please try again.";
+        }
+      }
+
+      // --- End OpenStreetMap Integration ---
+    </script>
+  </body>
+</html>
